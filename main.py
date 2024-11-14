@@ -40,19 +40,34 @@ class Motor:
         except Exception as e:
             logging.error(f"Error in ramp_speed: {e}")
 
-def create_motor_node(server, idx, motor, parent):
+def create_motor_type(server, idx):
+    motor_type = server.nodes.base_object_type.add_object_type(idx, "MotorType")
+    
+    motor_type.add_variable(idx, "ActualSpeed", 0, ua.VariantType.Int32).set_modelling_rule(True)
+    motor_type.add_variable(idx, "Status", False, ua.VariantType.Boolean).set_modelling_rule(True)
+    
+    motor_type.add_method(idx, "Start", lambda parent, speed: None, [ua.VariantType.Int32], [])
+    motor_type.add_method(idx, "Stop", lambda parent: None)
+    
+    return motor_type
+
+def create_motor_instance(server, idx, motor, parent, motor_type):
     motor_node = parent.add_object(idx, motor.name)
+
+    # Remove BaseObjectType reference
+    base_object_type = server.nodes.base_object_type
+    motor_node.delete_reference(base_object_type.nodeid, ua.ObjectIds.HasTypeDefinition, forward=True)
     
-    actual_speed_var = motor_node.add_variable(idx, "ActualSpeed", motor.actualSpeed, ua.VariantType.Int32)
-    actual_speed_var.set_writable()  # Allow writing to this variable if needed
+    # Add MotorType reference
+    motor_node.add_reference(motor_type.nodeid, ua.ObjectIds.HasTypeDefinition)
     
-    status_var = motor_node.add_variable(idx, "Status", motor.status, ua.VariantType.Boolean)
-    status_var.set_writable()  # Allow writing to this variable if needed
+    motor_node.add_variable(idx, "ActualSpeed", motor.actualSpeed)
+    motor_node.add_variable(idx, "Status", motor.status)
     
     motor_node.add_method(idx, "Start", lambda parent, speed: motor.start(speed), [ua.VariantType.Int32], [])
     motor_node.add_method(idx, "Stop", lambda parent: motor.stop())
     
-    logging.debug(f"Created motor node for {motor.name} with ActualSpeed, Status, Start, and Stop methods")
+    logging.debug(f"Created motor instance for {motor.name} with ActualSpeed, Status, Start, and Stop methods")
     return motor_node
 
 if __name__ == "__main__":
@@ -63,8 +78,12 @@ if __name__ == "__main__":
     # Create a "Demo" folder
     demo_folder = server.nodes.objects.add_folder(idx, "Demo")
 
+    # Create MotorType
+    motor_type = create_motor_type(server, idx)
+
+    # Create motor instances
     motors = [Motor(f"Motor{i}") for i in range(5)]
-    motor_nodes = [create_motor_node(server, idx, motor, demo_folder) for motor in motors]
+    motor_nodes = [create_motor_instance(server, idx, motor, demo_folder, motor_type) for motor in motors]
 
     server.start()
     logging.info(f"Server started at {ENDPOINT}")
@@ -84,5 +103,6 @@ if __name__ == "__main__":
                     status_node.set_value(motor.status)
                 except Exception as e:
                     logging.error(f"Error updating motor node: {e}")
+
     finally:
         server.stop()
