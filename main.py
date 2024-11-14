@@ -2,6 +2,7 @@ import logging
 from opcua import Server, ua, instantiate
 import time
 import threading
+import random
 
 # Configure logging
 logging.basicConfig(level=logging.WARNING)
@@ -40,6 +41,14 @@ class Motor:
         except Exception as e:
             logging.error(f"Error in ramp_speed: {e}")
 
+    def get_temperature(self):
+        # Return a random value which simulates the temperature of the motor
+        # If motor is running, temperature increases
+        # If motor is stopped, temperature decreases
+        # With some randomness to simulate real-world conditions
+        base_value = 40 if self.status else 20
+        return base_value + (self.actualSpeed / 100) + (0.5 - random.random())
+
 def create_motor_type(server: Server, idx: int):
     # Create a new object type "MotorType" under the server's base object type node
     motor_type = server.nodes.base_object_type.add_object_type(idx, "MotorType")
@@ -51,6 +60,30 @@ def create_motor_type(server: Server, idx: int):
     # Add 'Status' as a boolean variable with modeling rule set to 'Mandatory'
     status = motor_type.add_variable(idx, "Status", False, ua.VariantType.Boolean)
     status.set_modelling_rule("Mandatory")  # Ensures this variable is inherited by instances
+
+    # Add 'Temperature' with Celsius as engineering unit and a EURange of -20 to +70
+    temperature = motor_type.add_variable(idx, "Temperature", 0.0, ua.VariantType.Double)
+    temperature.set_modelling_rule("Mandatory")
+
+    # Define the engineering unit as Celsius (EUInformation object with code 4408652)
+    celsius_unit = ua.EUInformation()
+    celsius_unit.NamespaceUri = "http://www.opcfoundation.org/UA/units/un/cefact"
+    celsius_unit.UnitId = 4408652  # OPC UA-defined ID for degrees Celsius
+    celsius_unit.DisplayName = ua.LocalizedText("°C")
+    celsius_unit.Description = ua.LocalizedText("Celsius temperature unit")
+
+    # Add Engineering Units property to the Temperature variable
+    eng_units = temperature.add_property(idx, "EngineeringUnits", celsius_unit)
+    eng_units.set_modelling_rule("Mandatory")
+
+    # Define the EURange for the Temperature variable (-20 to +70)
+    eurange = ua.Range()
+    eurange.Low = 5.0
+    eurange.High = 50.0
+
+    # Add EURange property to the Temperature variable
+    temp_range = temperature.add_property(idx, "EURange", eurange)
+    temp_range.set_modelling_rule("Mandatory")
 
     # Define input arguments for the Start method
     input_args = [ua.Argument()]
@@ -115,9 +148,11 @@ if __name__ == "__main__":
                 try:
                     actual_speed_node = motor_node.get_child("2:ActualSpeed")
                     status_node = motor_node.get_child("2:Status")
+                    temperature_node = motor_node.get_child("2:Temperature")
                     
                     actual_speed_node.set_value(motor.actualSpeed)
                     status_node.set_value(motor.status)
+                    temperature_node.set_value(motor.get_temperature())
                 except Exception as e:
                     logging.error(f"Error updating motor node: {e}")
 
