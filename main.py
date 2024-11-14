@@ -41,23 +41,29 @@ class Motor:
             logging.error(f"Error in ramp_speed: {e}")
 
 def create_motor_type(server, idx):
+    # Create a new object type "MotorType" under the server's base object type node
     motor_type = server.nodes.base_object_type.add_object_type(idx, "MotorType")
-    
-    motor_type.add_variable(idx, "ActualSpeed", 0, ua.VariantType.Int32).set_modelling_rule(True)
-    motor_type.add_variable(idx, "Status", False, ua.VariantType.Boolean).set_modelling_rule(True)
-    
-    # Define input arguments for the Start method
+
+    # Add 'ActualSpeed' as an integer variable with modeling rule set to 'Mandatory'
+    actual_speed = motor_type.add_variable(idx, "ActualSpeed", 0, ua.VariantType.Int32)
+    actual_speed.set_modelling_rule("Mandatory")  # Ensures this variable is inherited by instances
+
+    # Add 'Status' as a boolean variable with modeling rule set to 'Mandatory'
+    status = motor_type.add_variable(idx, "Status", False, ua.VariantType.Boolean)
+    status.set_modelling_rule("Mandatory")  # Ensures this variable is inherited by instances
+
+    # Define input arguments for the 'Start' method
     input_args = [ua.Argument()]
     input_args[0].Name = "Speed"
     input_args[0].DataType = ua.NodeId(ua.ObjectIds.Int32)
-    input_args[0].ValueRank = -1
+    input_args[0].ValueRank = -1  # Indicates a scalar
     input_args[0].ArrayDimensions = []
     input_args[0].Description = ua.LocalizedText("Target speed of the motor")
-    
-    # Add methods with proper input arguments and metadata
+
+    # Add methods to the type with appropriate input arguments
     motor_type.add_method(idx, "Start", lambda parent, speed: motor.start(speed), input_args, [])
     motor_type.add_method(idx, "Stop", lambda parent: None)
-    
+
     return motor_type
 
 def create_motor_instance(server, idx, motor, parent, motor_type):
