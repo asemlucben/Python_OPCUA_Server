@@ -40,7 +40,7 @@ class Motor:
         except Exception as e:
             logging.error(f"Error in ramp_speed: {e}")
 
-def create_motor_type(server: Server, idx: int, motors: list[Motor]):
+def create_motor_type(server: Server, idx: int):
     # Create a new object type "MotorType" under the server's base object type node
     motor_type = server.nodes.base_object_type.add_object_type(idx, "MotorType")
 
@@ -51,6 +51,18 @@ def create_motor_type(server: Server, idx: int, motors: list[Motor]):
     # Add 'Status' as a boolean variable with modeling rule set to 'Mandatory'
     status = motor_type.add_variable(idx, "Status", False, ua.VariantType.Boolean)
     status.set_modelling_rule("Mandatory")  # Ensures this variable is inherited by instances
+
+    # Define input arguments for the Start method
+    input_args = [ua.Argument()]
+    input_args[0].Name = "Speed"
+    input_args[0].DataType = ua.NodeId(ua.ObjectIds.Int32)
+    input_args[0].ValueRank = -1
+    input_args[0].ArrayDimensions = []
+    input_args[0].Description = ua.LocalizedText("Target speed of the motor")
+    
+    # Add methods with proper input arguments and metadata
+    motor_type.add_method(idx, "Start", lambda parent, speed: None, input_args, [])
+    motor_type.add_method(idx, "Stop", lambda parent: None)
 
     return motor_type
 
@@ -64,7 +76,7 @@ def create_motor_instance(server, idx, motor, parent, motor_type):
     input_args[0].ValueRank = -1
     input_args[0].ArrayDimensions = []
     input_args[0].Description = ua.LocalizedText("Target speed of the motor")
-    
+
     # Add methods with proper input arguments and metadata
     motor_node.add_method(idx, "Start", lambda parent, speed: motor.start(speed), input_args, [])
     motor_node.add_method(idx, "Stop", lambda parent: motor.stop())
@@ -86,7 +98,7 @@ if __name__ == "__main__":
     motors = [Motor(f"Motor{i}") for i in range(5)]
 
     # Create MotorType
-    motor_type = create_motor_type(server, idx, motors)
+    motor_type = create_motor_type(server, idx)
     # Create motor instances
     motor_nodes = [create_motor_instance(server, idx, motor, demo_folder, motor_type) for motor in motors]
 
