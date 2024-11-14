@@ -4,7 +4,7 @@ import time
 import threading
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARNING)
 
 ENDPOINT = "opc.tcp://127.0.0.1:4840/server/"
 
@@ -46,7 +46,16 @@ def create_motor_type(server, idx):
     motor_type.add_variable(idx, "ActualSpeed", 0, ua.VariantType.Int32).set_modelling_rule(True)
     motor_type.add_variable(idx, "Status", False, ua.VariantType.Boolean).set_modelling_rule(True)
     
-    motor_type.add_method(idx, "Start", lambda parent, speed: None, [ua.VariantType.Int32], [])
+    # Define input arguments for the Start method
+    input_args = [ua.Argument()]
+    input_args[0].Name = "Speed"
+    input_args[0].DataType = ua.NodeId(ua.ObjectIds.Int32)
+    input_args[0].ValueRank = -1
+    input_args[0].ArrayDimensions = []
+    input_args[0].Description = ua.LocalizedText("Target speed of the motor")
+    
+    # Add methods with proper input arguments and metadata
+    motor_type.add_method(idx, "Start", lambda parent, speed: motor.start(speed), input_args, [])
     motor_type.add_method(idx, "Stop", lambda parent: None)
     
     return motor_type
@@ -61,10 +70,20 @@ def create_motor_instance(server, idx, motor, parent, motor_type):
     # Add MotorType reference
     motor_node.add_reference(motor_type.nodeid, ua.ObjectIds.HasTypeDefinition)
     
-    motor_node.add_variable(idx, "ActualSpeed", motor.actualSpeed)
-    motor_node.add_variable(idx, "Status", motor.status)
+    # Add variables with specific datatypes
+    motor_node.add_variable(idx, "ActualSpeed", motor.actualSpeed, varianttype=ua.VariantType.Int32)
+    motor_node.add_variable(idx, "Status", motor.status, varianttype=ua.VariantType.Int32)
     
-    motor_node.add_method(idx, "Start", lambda parent, speed: motor.start(speed), [ua.VariantType.Int32], [])
+    # Define input arguments for the Start method
+    input_args = [ua.Argument()]
+    input_args[0].Name = "Speed"
+    input_args[0].DataType = ua.NodeId(ua.ObjectIds.Int32)
+    input_args[0].ValueRank = -1
+    input_args[0].ArrayDimensions = []
+    input_args[0].Description = ua.LocalizedText("Target speed of the motor")
+    
+    # Add methods with proper input arguments and metadata
+    motor_node.add_method(idx, "Start", lambda parent, speed: motor.start(speed), input_args, [])
     motor_node.add_method(idx, "Stop", lambda parent: motor.stop())
     
     logging.debug(f"Created motor instance for {motor.name} with ActualSpeed, Status, Start, and Stop methods")
@@ -73,7 +92,7 @@ def create_motor_instance(server, idx, motor, parent, motor_type):
 if __name__ == "__main__":
     server = Server()
     server.set_endpoint(ENDPOINT)
-    idx = server.register_namespace("http://examples.freeopcua.github.io")
+    idx = server.register_namespace("http://asemlucben.local")
 
     # Create a "Demo" folder
     demo_folder = server.nodes.objects.add_folder(idx, "Demo")
