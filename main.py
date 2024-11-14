@@ -1,5 +1,5 @@
 import logging
-from opcua import Server, ua
+from opcua import Server, ua, instantiate
 import time
 import threading
 
@@ -40,7 +40,7 @@ class Motor:
         except Exception as e:
             logging.error(f"Error in ramp_speed: {e}")
 
-def create_motor_type(server, idx):
+def create_motor_type(server: Server, idx: int, motors: list[Motor]):
     # Create a new object type "MotorType" under the server's base object type node
     motor_type = server.nodes.base_object_type.add_object_type(idx, "MotorType")
 
@@ -52,34 +52,11 @@ def create_motor_type(server, idx):
     status = motor_type.add_variable(idx, "Status", False, ua.VariantType.Boolean)
     status.set_modelling_rule("Mandatory")  # Ensures this variable is inherited by instances
 
-    # Define input arguments for the 'Start' method
-    input_args = [ua.Argument()]
-    input_args[0].Name = "Speed"
-    input_args[0].DataType = ua.NodeId(ua.ObjectIds.Int32)
-    input_args[0].ValueRank = -1  # Indicates a scalar
-    input_args[0].ArrayDimensions = []
-    input_args[0].Description = ua.LocalizedText("Target speed of the motor")
-
-    # Add methods to the type with appropriate input arguments
-    motor_type.add_method(idx, "Start", lambda parent, speed: motor.start(speed), input_args, [])
-    motor_type.add_method(idx, "Stop", lambda parent: None)
-
     return motor_type
 
 def create_motor_instance(server, idx, motor, parent, motor_type):
-    motor_node = parent.add_object(idx, motor.name)
+    motor_node = parent.add_object(idx, motor.name, objecttype=motor_type.nodeid)
 
-    # Remove BaseObjectType reference
-    base_object_type = server.nodes.base_object_type
-    motor_node.delete_reference(base_object_type.nodeid, ua.ObjectIds.HasTypeDefinition, forward=True)
-    
-    # Add MotorType reference
-    motor_node.add_reference(motor_type.nodeid, ua.ObjectIds.HasTypeDefinition)
-    
-    # Add variables with specific datatypes
-    motor_node.add_variable(idx, "ActualSpeed", motor.actualSpeed, varianttype=ua.VariantType.Int32)
-    motor_node.add_variable(idx, "Status", motor.status, varianttype=ua.VariantType.Int32)
-    
     # Define input arguments for the Start method
     input_args = [ua.Argument()]
     input_args[0].Name = "Speed"
@@ -99,15 +76,18 @@ if __name__ == "__main__":
     server = Server()
     server.set_endpoint(ENDPOINT)
     idx = server.register_namespace("http://asemlucben.local")
+    server.set_server_name("asemlucben Example Server")
+    server.set_security_policy([ua.SecurityPolicyType.NoSecurity])
 
     # Create a "Demo" folder
     demo_folder = server.nodes.objects.add_folder(idx, "Demo")
 
-    # Create MotorType
-    motor_type = create_motor_type(server, idx)
-
-    # Create motor instances
+    # Create 5 python instances of the Motor class
     motors = [Motor(f"Motor{i}") for i in range(5)]
+
+    # Create MotorType
+    motor_type = create_motor_type(server, idx, motors)
+    # Create motor instances
     motor_nodes = [create_motor_instance(server, idx, motor, demo_folder, motor_type) for motor in motors]
 
     server.start()
