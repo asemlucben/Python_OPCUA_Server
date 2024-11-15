@@ -56,14 +56,20 @@ def create_motor_type(server: Server, idx: int):
     # Add 'ActualSpeed' as an integer variable with modeling rule set to 'Mandatory'
     actual_speed = motor_type.add_variable(idx, "ActualSpeed", 0, ua.VariantType.Int32)
     actual_speed.set_modelling_rule("Mandatory")  # Ensures this variable is inherited by instances
+    # actual_speed.write_attribute(ua.AttributeIds.AccessLevel, ua.AccessLevel.CurrentRead)  # Read-only
+    # actual_speed.write_attribute(ua.AttributeIds.ValueRank, -1)  # Scalar value
 
     # Add 'Status' as a boolean variable with modeling rule set to 'Mandatory'
     status = motor_type.add_variable(idx, "Status", False, ua.VariantType.Boolean)
     status.set_modelling_rule("Mandatory")  # Ensures this variable is inherited by instances
+    # status.write_attribute(ua.AttributeIds.AccessLevel, ua.AccessLevel.CurrentRead)  # Read-only
+    # status.write_attribute(ua.AttributeIds.ValueRank, -1)  # Scalar value
 
-    # Add 'Temperature' with Celsius as engineering unit and a EURange of -20 to +70
+    # Add 'Temperature' with Celsius as engineering unit and a EURange
     temperature = motor_type.add_variable(idx, "Temperature", 0.0, ua.VariantType.Double)
     temperature.set_modelling_rule("Mandatory")
+    # temperature.write_attribute(ua.AttributeIds.AccessLevel, ua.AccessLevel.CurrentRead)  # Read-only
+    # temperature.write_attribute(ua.AttributeIds.ValueRank, -1)  # Scalar value
 
     # Define the engineering unit as Celsius (EUInformation object with code 4408652)
     celsius_unit = ua.EUInformation()
@@ -77,12 +83,12 @@ def create_motor_type(server: Server, idx: int):
     eng_units.set_modelling_rule("Mandatory")
 
     # Define the EURange for the Temperature variable (-20 to +70)
-    eurange = ua.Range()
-    eurange.Low = 5.0
-    eurange.High = 50.0
+    eu_range = ua.Range()
+    eu_range.Low = 5.0
+    eu_range.High = 50.0
 
     # Add EURange property to the Temperature variable
-    temp_range = temperature.add_property(idx, "EURange", eurange)
+    temp_range = temperature.add_property(idx, "EURange", eu_range)
     temp_range.set_modelling_rule("Mandatory")
 
     # Define input arguments for the Start method
